@@ -118,6 +118,7 @@ class App:
         ttk.Label(root,textvariable=self.status,wraplength=950,padding=10).pack(fill='x')
         self.search.trace_add('write',lambda *args:self.render());self.mode.trace_add('write',lambda *args:self.render())
         root.after(1000,self.heartbeat)
+        if '--smoke-test' not in sys.argv:root.after(100,self.refresh)
     def error(self,text):
         from tkinter import messagebox
         messagebox.showerror('BO3 Community Client',str(text))
@@ -160,6 +161,11 @@ class App:
         from tkinter import filedialog,messagebox
         selected=filedialog.askopenfilename(title='Clave privada de identidad BOIII/Ezz')
         if not selected:return
+        try:
+            status=json.loads((DATA/'status.json').read_text())
+            if time.time()-status.get('time',0)<8:raise ValueError('Cierra el juego antes de importar una identidad.')
+        except (OSError,json.JSONDecodeError):pass
+        except ValueError as e:self.error(e);return
         if not messagebox.askyesno('Identidad','Cierra BO3 primero. ¿Reemplazar la identidad local después de respaldarla?'):return
         try:
             self.backup();target=Path(os.getenv('LOCALAPPDATA',''))/'boiii/user/ezz-private.key';target.parent.mkdir(parents=True,exist_ok=True)
