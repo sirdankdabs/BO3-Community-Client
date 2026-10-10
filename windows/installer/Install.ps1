@@ -5,6 +5,9 @@ try {
     if (!(Test-Path (Join-Path $source 'BO3CommunityClient.exe'))) { throw 'Extrae el ZIP completo antes de instalar.' }
     if (Get-Process -Name BO3CommunityClient -ErrorAction SilentlyContinue) { throw 'Cierra la app BO3 Community Client antes de actualizarla.' }
     New-Item -ItemType Directory -Force -Path $target | Out-Null
+    # Remove the previous app's bundled Ezz executable; user profiles stay outside this folder.
+    $legacyEngine = Join-Path $target '_internal/engine'
+    if (Test-Path $legacyEngine) { Remove-Item $legacyEngine -Recurse -Force }
     if ([IO.Path]::GetFullPath($source) -ne [IO.Path]::GetFullPath($target)) {
         Copy-Item (Join-Path $source '*') $target -Recurse -Force
     }

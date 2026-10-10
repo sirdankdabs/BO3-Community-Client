@@ -1,30 +1,25 @@
-# BO3 Community Client para Windows — beta1
+# BO3 Community Client para Windows — Steam beta2
 
-Port de la app Mac: lista de servidores, búsqueda, filtros Zombies/MP/vacíos/llenos/mods, ordenamiento, nombre, conexión, respaldo de perfil e importación de identidad. Interfaz nativa Tk empaquetada como EXE, sin Python instalado en el equipo del jugador.
+Esta versión abre **BlackOps3.exe original mediante Steam** y carga BO3SteamFix.dll dentro de ese proceso. No incluye ni ejecuta boiii.exe. La app puede adjuntarse al juego que ya abriste desde Steam. El transporte comunitario usa una identidad P-521 y un socket propio solo mientras conecta al servidor elegido. Al desconectar restaura las instrucciones temporales; el perfil y la identidad Steam permanecen intactos.
 
-El motor nativo es Ezz BOIII v3.0.0, fijado al commit 5aa7fac39c51438d9c1e312b99534b7fef3bff44, con un componente propio de comunicación entre app y juego. Esa versión soporta el ejecutable Steam del 10 de septiembre de 2026. Las correcciones que solo aplican a Mac (cURL, audio de Mac, conversión de Havok) se conservan en el código Mac y no se aplican a Windows.
+## Instalar y probar
 
-## Uso
+1. Extrae el ZIP completo y ejecuta Install.cmd. Mantén las carpetas internas.
+2. Selecciona la carpeta que contiene BlackOps3.exe. Se admite únicamente el ejecutable Steam de septiembre de 2026, identificado por timestamp y checksum.
+3. Abre BO3 desde Steam normalmente. En la app selecciona un servidor sin contenido Workshop y pulsa Unirse.
+4. La app carga la DLL; entra al menú Zombies o Multijugador que corresponda. La DLL valida el servidor y solicita la conexión nativa.
+5. Al salir del servidor, comprueba una partida pública desde el mismo juego. Cierra y reinicia BO3 si la prueba falla; no se reemplaza el ejecutable ni se modifica el archivo del juego.
 
-1. Descargar el ZIP completo de la compilación Windows y extraerlo. Mantener las carpetas internas. Ejecutar Install.cmd para instalar por usuario y crear el acceso directo; también se puede abrir la app directamente.
-2. Abrir BO3CommunityClient.exe, seleccionar la carpeta de BO3 de Steam y actualizar la lista.
-3. Seleccionar servidor, nombre y Unirse. Entrar al menú Zombies o Multijugador correspondiente para conectar.
-4. Unlock All respalda el perfil y ejecuta la opción del motor Ezz. El bridge solicita rango 997 con XP tomada de las tablas nativas, como en Mac; falta comprobarlo dentro del juego. También guarda XP de armas y 255 GobbleGums por tipo en el perfil local Ezz, conservando cantidades mayores y verificando escrituras; la persistencia requiere comprobarse en el juego. Los camuflajes y desafíos desbloqueados por hooks requieren el motor activo; los GobbleGums locales de Ezz y su perfil no equivalen al inventario de Steam.
+También puedes pulsar Unirse con el juego cerrado: la app pide a Steam que lo abra y espera para cargar la DLL. Se necesitan Steam y BO3 legítimamente instalados. Instala app y juego con el mismo usuario de Windows.
 
-Para comprobar persistencia, cierra el juego normalmente, vuelve a abrirlo y pulsa Verificar guardado. Esa opción desactiva los desbloqueos simulados de Ezz; revisa accesorios y cantidades locales. Los camuflajes que dependen de desafíos pueden volver a bloquearse.
+**Estado experimental:** las pruebas de protocolo y compilación no demuestran que la conexión completa o las partidas públicas funcionen dentro de BO3. Eso debe verificarlo el probador. La transición Steam ↔ comunidad, mods/Workshop, transporte y autenticación necesitan pruebas reales. Esta beta prueba mapas originales; no habilita Unlock All ni cambios permanentes del perfil Steam. Beta1 utilizaba otro motor; no prueba esta integración.
 
-Los datos de la app están en %LOCALAPPDATA%/BO3 Community Client. Ezz conserva su identidad y progreso en %LOCALAPPDATA%/boiii. El botón de respaldo incluye ambos perfiles.
+La DLL usa el soporte de integridad y las protecciones de T7Patch actualizado. Las direcciones y estructuras de la conexión se toman del commit fijado de Ezz; se adaptan a hooks que delegan al juego original cuando no hay una sesión comunitaria. No se carga la emulación Steam de Ezz, sus servicios ni su motor.
+
+Datos y diagnóstico: %LOCALAPPDATA%/BO3 Community Client (steam-engine.log, status.json, identity.key). La clave es privada; no la publiques. El botón de respaldo copia players y la identidad local antes de importar otra clave.
 
 ## Compilar
 
-Windows 10/11 x64, Visual Studio Build Tools con Desktop C++, ClangCL, Premake5 y Python 3.12.
+Windows x64, Visual Studio Build Tools con C++, CMake y Python 3.12. Clona con submódulos recursivos y ejecuta windows/build.ps1. Salida: dist/BO3CommunityClient-Windows-beta2.zip. GitHub Actions compila la DLL, el cargador y la app; prueba serialización, fragmentación, encuadre de paquetes y arranque empaquetado.
 
-```
-git clone --recurse-submodules <URL-del-repositorio>
-cd BO3-Community-Client/windows
-powershell -File build.ps1
-```
-
-Salida: dist/BO3CommunityClient-Windows-beta1.zip. Las compilaciones y pruebas en Windows se ejecutan en GitHub Actions. La conexión, mapas, identidad y guardado real necesitan verificación dentro del juego por el probador; compilar no confirma paridad total.
-
-Motor Ezz: GPL-3.0 (LICENSE en el submódulo). El componente bridge y launcher de este directorio se distribuyen bajo GPL-3.0. El código Mac conserva sus licencias originales. No se distribuyen archivos del juego, cuentas ni claves personales.
+Fuentes externas fijadas: Scroptss/T7Patch-src y Ezz-lol/boiii-free. Conservan sus créditos y condiciones originales. El código propio está bajo GPL-3.0. No se distribuyen archivos del juego, cuentas ni claves personales.

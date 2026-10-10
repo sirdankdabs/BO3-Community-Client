@@ -92,7 +92,7 @@ class App:
         DATA.mkdir(parents=True,exist_ok=True)
         try:self.settings=json.loads((DATA/'settings.json').read_text())
         except (OSError,ValueError):self.settings={}
-        root.title('BO3 Community Client · Windows beta1');root.geometry('1000x660')
+        root.title('BO3 Community Client · Steam Windows beta2');root.geometry('1000x660')
         self.game=tk.StringVar(value=self.settings.get('game',find_game()))
         self.name=tk.StringVar(value=self.settings.get('name',''))
         self.search=tk.StringVar();self.mode=tk.StringVar(value='Todos')
@@ -114,7 +114,7 @@ class App:
         self.table.pack(fill='both',expand=True,padx=10)
         controls=ttk.Frame(root,padding=10);controls.pack(fill='x')
         ttk.Label(controls,text='Nombre:').pack(side='left');ttk.Entry(controls,textvariable=self.name,width=18).pack(side='left')
-        for text,action in [('Unirse',self.join),('Respaldar perfil',self.backup),('Importar identidad',self.import_key),('Exportar identidad',self.export_key),('Unlock All',self.unlock),('Verificar guardado',self.verify),('Abrir carpeta de datos',lambda:os.startfile(str(DATA)))]:ttk.Button(controls,text=text,command=action).pack(side='left',padx=4)
+        for text,action in [('Unirse',self.join),('Respaldar perfil',self.backup),('Importar identidad',self.import_key),('Exportar identidad',self.export_key),('Abrir carpeta de datos',lambda:os.startfile(str(DATA)))]:ttk.Button(controls,text=text,command=action).pack(side='left',padx=4)
         ttk.Label(root,textvariable=self.status,wraplength=950,padding=10).pack(fill='x')
         self.search.trace_add('write',lambda *args:self.render());self.mode.trace_add('write',lambda *args:self.render())
         root.after(1000,self.heartbeat)
@@ -156,13 +156,14 @@ class App:
         self.busy=False;self.servers=servers;self.render();self.status.set(error or f'{len(servers)} servidores disponibles.')
     def backup(self):
         folder=DATA/'backups'/(time.strftime('%Y%m%d-%H%M%S')+'-'+uuid.uuid4().hex[:6]);folder.mkdir(parents=True,exist_ok=False)
-        for name,src in [('players',Path(self.game.get())/'players'),('boiii',Path(os.getenv('LOCALAPPDATA',''))/'boiii')]:
+        for name,src in [('players',Path(self.game.get())/'players'),('identity',DATA/'identity.key')]:
             if src.is_dir():shutil.copytree(src,folder/name)
+            elif src.is_file():shutil.copy2(src,folder/(name+src.suffix))
         self.status.set(f'Respaldo: {folder}');return folder
     def export_key(self):
         from tkinter import filedialog
         source=Path(os.getenv('LOCALAPPDATA',''))/'BO3 Community Client/identity.key'
-        if not source.is_file():self.error('No hay identidad todavía. Arranca el motor una vez.');return
+        if not source.is_file():self.error('No hay identidad todavía. Conecta a un servidor una vez.');return
         target=filedialog.asksaveasfilename(title='Guardar respaldo de identidad',initialfile='bo3-identity.key',defaultextension='.key')
         if target:
             try:shutil.copy2(source,target);self.status.set('Identidad exportada; guárdala en privado.')
@@ -213,9 +214,10 @@ class App:
         if getattr(self,'attach_process',None) and self.attach_process.poll() is None:return
         os.startfile('steam://run/311210')
         self.attach_process=subprocess.Popen([str(helper),'--game',str(game/'BlackOps3.exe'),'--dll',str(dll)],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+        process=self.attach_process
         def monitor():
-            result=self.attach_process.communicate()[0].decode('utf-8',errors='replace').strip()
-            if self.attach_process.returncode:self.root.after(0,lambda:self.error(result or 'No se pudo cargar la integración Steam.'))
+            result=process.communicate()[0].decode('utf-8',errors='replace').strip()
+            if process.returncode:self.root.after(0,lambda:self.error(result or 'No se pudo cargar la integración Steam.'))
         threading.Thread(target=monitor,daemon=True).start()
     def unlock(self):
         self.error('La beta2 prueba conexión en el BO3 original de Steam. Los cambios de perfil y Unlock All todavía no están habilitados para este motor; tu progreso Steam se conserva.')

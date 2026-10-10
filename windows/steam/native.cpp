@@ -21,6 +21,8 @@
 #include <rapidjson/stringbuffer.h>
 #include "GameBuild.h"
 #include "Arxan.h"
+#include "framework.h"
+void RunPatching();
 #include "minhook/include/MinHook.h"
 #include "protocol.hpp"
 extern "C" {
@@ -131,7 +133,7 @@ void info_response(std::string_view data){
  auto pos=data.find_first_of(" \n");if(pos==data.npos)return;auto fields=wire::info(data.substr(pos+1));
  if(fields["challenge"]!=target.nonce||fields["protocol"]!="8"||fields["gamename"]!="T7")return;
  if(fields["playmode"]!=std::to_string(target.mode))throw std::runtime_error("Server mode differs from request");
- for(auto name:{"usermap_id","mod_id"})if(!fields[name].empty()&&fields[name]!="0")throw std::runtime_error("Workshop content needs native Steam integration testing; use a stock-map server for this beta");
+ for(auto name:{"usermapId","modId"})if(!fields[name].empty()&&fields[name]!="0")throw std::runtime_error("Workshop content needs native Steam integration testing; use a stock-map server for this beta");
  if(!safe_token(fields["mapname"])||!safe_token(fields["gametype"]))throw std::runtime_error("Invalid map or gametype");
  target.map=fields["mapname"];target.gametype=fields["gametype"];target.queried=true;
  auto xuid=fields["xuid"];if(!xuid.empty()){size_t used;target.serverXuid=std::stoull(xuid,&used,16);if(used!=xuid.size())throw std::runtime_error("Invalid server XUID");}
@@ -180,6 +182,19 @@ void launch(){
  }catch(...){end("No se pudo preparar la conexión nativa");throw;}
 }
 void tick(){
+ arxan_bypass::maintain();
+ static bool protectionInstalled=false;
+ if(!protectionInstalled && at<bool(*)()>(0x1420EF8F0)()) {
+  auto lobbySlot=reinterpret_cast<uintptr_t*>(DW_LOBBY);
+  if(accessible(lobbySlot,8) && accessible(reinterpret_cast<void*>(*lobbySlot+1384),8)) {
+   auto slot=*reinterpret_cast<uintptr_t*>(*lobbySlot+1384);
+   if(accessible(reinterpret_cast<void*>(slot),8) && accessible(reinterpret_cast<void*>(*reinterpret_cast<uintptr_t*>(slot)),50*8)) {
+    const char* steamName=at<const char*(*)(int)>(0x141EBA850)(0);
+    if(steamName)snprintf(Protection::CustomName,sizeof(Protection::CustomName),"%s",steamName);
+    RunPatching();protectionInstalled=true;log("T7Patch protections installed inside Steam BO3");
+   }
+  }
+ }
  static uint64_t nextStatus=0,nextRequest=0;auto now=GetTickCount64();
  if(now>=nextStatus){status();nextStatus=now+1000;}
  if(target.active){if(now-target.started>45000&&(!target.launched||state()<=5)){end("Conexión agotada; Steam restaurado");return;}
@@ -207,7 +222,7 @@ DWORD WINAPI initialize(void*){
   auto result=MH_Initialize();if(result!=MH_OK&&result!=MH_ERROR_ALREADY_INITIALIZED)throw std::runtime_error("MinHook unavailable");
   hook(0x1420EC680,frame_hook,&originalFrame);hook(0x14134B990,resend_hook,&originalResend);hook(0x1422B9240,send_hook,&originalSend);hook(0x14211AB40,oob_hook,&originalOob);hook(0x1422B9040,receive_hook,&originalReceive);hook(0x141EBA340,lookup_hook,&originalLookup);hook(0x14135D880,disconnect_hook,&originalDisconnect);hook(0x1400A7570,cache_hook,&originalCache);
   // Enable only this module's hooks, leaving any other MinHook users untouched.
-  for(auto va:{0x1420EC680ULL,0x14134B990ULL,0x1422B9240ULL,0x14211AB40ULL,0x1422B9040ULL,0x141EBA340ULL,0x14135D880ULL,0x1400A7570ULL})if(MH_EnableHook(at<void*>(va))!=MH_OK)throw std::runtime_error("Native hook activation failed");
+  for(auto va:{0x14134B990ULL,0x1422B9240ULL,0x14211AB40ULL,0x1422B9040ULL,0x141EBA340ULL,0x14135D880ULL,0x1400A7570ULL,0x1420EC680ULL})if(MH_EnableHook(at<void*>(va))!=MH_OK)throw std::runtime_error("Native hook activation failed");
   status("BO3 original de Steam conectado a la app; partidas públicas conservan su transporte");return 0;
  }catch(const std::exception& e){status(e.what());log(e.what());return 1;}
 }
