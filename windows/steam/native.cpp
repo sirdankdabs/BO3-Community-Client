@@ -15,6 +15,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <utility>
 #include <stdexcept>
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
@@ -131,7 +132,7 @@ void resend_hook(int client){
 int lookup_hook(uint64_t xuid){return target.active&&xuid==identityXuid?0:originalLookup(xuid);}
 int signed_lookup_hook(uint64_t xuid){return target.active&&xuid==identityXuid?0:originalSignedLookup(xuid);}
 bool local_xuid_hook(uint64_t xuid){return (target.active&&xuid==identityXuid)||originalIsLocal(xuid);}
-void disconnect_hook(int client,bool deactivate){if(client==0&&target.active&&!target.launching)end("Sesión comunitaria terminada; Steam restaurado");originalDisconnect(client,deactivate);}
+void disconnect_hook(int client,bool deactivate){if(client==0&&target.active&&!target.launching&&!target.modChanging)end("Sesión comunitaria terminada; Steam restaurado");originalDisconnect(client,deactivate);}
 void cache_hook(int client){if(!target.active)originalCache(client);}
 bool safe_token(const std::string& s){return !s.empty()&&s.size()<64&&s.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")==s.npos;}
 void info_response(std::string_view data){
@@ -178,6 +179,8 @@ void begin(const rapidjson::Document& request){
  u_long nonblocking=1;ioctlsocket(next.socket,FIONBIO,&nonblocking);next.started=GetTickCount64();next.nonce=std::to_string(next.started)+"-"+std::to_string(GetCurrentProcessId());next.active=true;target=std::move(next);haveChallenge=usedChallenge=false;status("Consultando servidor desde BO3 de Steam");
 }
 void launch(){
+ if(target.modChanging){if(!at<bool(*)(int)>(0x1420CA660)(0))return;target.modChanging=false;}
+ if(!at<bool(*)()>(0x1420EF8F0)()||at<bool(*)()>(0x1420EF860)())return;
  if(at<int(*)()>(0x1420EA5B0)()!=target.mode)return;
  if(!target.workshopPrepared){
   at<void(*)()>(0x1420C9F40)();
@@ -186,7 +189,6 @@ void launch(){
   const char* current=at<const char*(*)()>(0x1420CAF00)();target.workshopPrepared=true;
   if(std::string(current?current:"")!=desired){target.modChanging=true;at<void(*)(int,const char*,bool)>(0x1420CA1B0)(0,desired,true);status("Cargando contenido Workshop de Steam");return;}
  }
- if(target.modChanging){if(!at<bool(*)(int)>(0x1420CA660)(0))return;target.modChanging=false;}
  auto p=peer();if(!p)return;target.steamXuid=at<uint64_t(*)(int)>(0x141EBA880)(0);
  auto initial=at<uint32_t*>(initial_state.va);if(!accessible(initial,4)||*initial>12)throw std::runtime_error("Unexpected CL_ConnectFromLobby state instruction");
  auto branch=at<uint8_t*>(dw_connection_check.va);if(!accessible(branch,1)||(*branch<0x70||*branch>0x7f))throw std::runtime_error("Unexpected native connection check instruction");
