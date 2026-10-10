@@ -42,9 +42,9 @@ struct profile {
   if(target>state.member->rangeLimit)return false;changes.push_back({state,before,target});return true;
  }
  bool commit() {
-  size_t written=0;
-  for(auto& c:changes) {if(!DDL_SetUInt(&c.state,context,c.after))break;++written;if(DDL_GetUInt(&c.state,context)!=c.after)break;}
-  if(written==changes.size() && Storage_Write(game::CONTROLLER_INDEX_0,file,0))return true;
+  size_t written=0;bool valid=true;
+  for(auto& c:changes) {if(!DDL_SetUInt(&c.state,context,c.after)) {valid=false;break;}++written;if(DDL_GetUInt(&c.state,context)!=c.after) {valid=false;break;}}
+  if(valid && written==changes.size() && Storage_Write(game::CONTROLLER_INDEX_0,file,0))return true;
   while(written) {auto& c=changes[--written];DDL_SetUInt(&c.state,context,c.before);}return false;
  }
 };

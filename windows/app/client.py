@@ -114,7 +114,7 @@ class App:
         self.table.pack(fill='both',expand=True,padx=10)
         controls=ttk.Frame(root,padding=10);controls.pack(fill='x')
         ttk.Label(controls,text='Nombre:').pack(side='left');ttk.Entry(controls,textvariable=self.name,width=18).pack(side='left')
-        for text,action in [('Unirse',self.join),('Respaldar perfil',self.backup),('Importar identidad',self.import_key),('Exportar identidad',self.export_key),('Unlock All',self.unlock),('Abrir carpeta de datos',lambda:os.startfile(str(DATA)))]:ttk.Button(controls,text=text,command=action).pack(side='left',padx=4)
+        for text,action in [('Unirse',self.join),('Respaldar perfil',self.backup),('Importar identidad',self.import_key),('Exportar identidad',self.export_key),('Unlock All',self.unlock),('Verificar guardado',self.verify),('Abrir carpeta de datos',lambda:os.startfile(str(DATA)))]:ttk.Button(controls,text=text,command=action).pack(side='left',padx=4)
         ttk.Label(root,textvariable=self.status,wraplength=950,padding=10).pack(fill='x')
         self.search.trace_add('write',lambda *args:self.render());self.mode.trace_add('write',lambda *args:self.render())
         root.after(1000,self.heartbeat)
@@ -228,6 +228,15 @@ class App:
             backup=self.backup();(backup/'backup.ready').write_text('Respaldo previo a Unlock All.\n')
             atomic_json(DATA/'join.request',{'version':1,'action':'unlock','mode':'0' if mode=='Zombies' else '1','backup':str(backup)})
             self.start_engine(engine,game);self.status.set('Entra al menú elegido para aplicar Unlock All con respaldo.')
+        except Exception as e:self.error(e)
+    def verify(self):
+        try:
+            mode=self.mode.get()
+            if mode=='Todos':raise ValueError('Elige Zombies o Multijugador primero.')
+            game=Path(self.game.get());engine=Path(getattr(sys,'_MEIPASS',Path(__file__).parent))/'engine/boiii.exe'
+            if not engine.is_file() or executable_checksum(game/'BlackOps3.exe')!=0x6531394:raise ValueError('Selecciona un juego compatible y el paquete completo.')
+            atomic_json(DATA/'join.request',{'version':1,'action':'verify','mode':'0' if mode=='Zombies' else '1'})
+            self.start_engine(engine,game);self.status.set('Entra al menú elegido: se desactivarán los desbloqueos simulados para comprobar el progreso real.')
         except Exception as e:self.error(e)
     def heartbeat(self):
         try:

@@ -78,6 +78,8 @@ void tick() {
         status("Rango 997 solicitado; verifica el guardado tras reiniciar");
       } else status("Unlock All aplicado; vuelve al menú para ajustar el rango a 997");
     },scheduler::main,2s);
+  } else if(doc.HasMember("action") && doc["action"].IsString() && std::string(doc["action"].GetString())=="verify") {
+    commands="set cg_unlockall_loot 0\nset cg_unlockall_gobblegums 0\nset cg_unlockall_purchases 0\nset cg_unlockall_attachments 0\nset cg_unlockall_camos_and_reticles 0\nset cg_unlockall_calling_cards 0\nset cg_unlockall_specialists_outfits 0\nset cg_unlockall_cac_slots 0\n";
   } else {
     if(!doc.HasMember("server") || !doc["server"].IsString()) {std::filesystem::remove(file);return;}
     const std::string server=doc["server"].GetString();
