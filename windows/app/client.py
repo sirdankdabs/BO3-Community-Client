@@ -161,7 +161,7 @@ class App:
         self.status.set(f'Respaldo: {folder}');return folder
     def export_key(self):
         from tkinter import filedialog
-        source=Path(os.getenv('LOCALAPPDATA',''))/'boiii/user/ezz-private.key'
+        source=Path(os.getenv('LOCALAPPDATA',''))/'BO3 Community Client/identity.key'
         if not source.is_file():self.error('No hay identidad todavía. Arranca el motor una vez.');return
         target=filedialog.asksaveasfilename(title='Guardar respaldo de identidad',initialfile='bo3-identity.key',defaultextension='.key')
         if target:
@@ -173,75 +173,58 @@ class App:
         if not selected:return
         try:
             status=json.loads((DATA/'status.json').read_text())
-            if time.time()-status.get('time',0)<8:raise ValueError('Cierra el juego antes de importar una identidad.')
+            if status.get('backend')=='steam-native' and time.time()-status.get('time',0)<8:raise ValueError('Cierra el juego antes de importar una identidad.')
         except (OSError,json.JSONDecodeError):pass
         except ValueError as e:self.error(e);return
         if not messagebox.askyesno('Identidad','Cierra BO3 primero. ¿Reemplazar la identidad local después de respaldarla?'):return
         try:
-            self.backup();target=Path(os.getenv('LOCALAPPDATA',''))/'boiii/user/ezz-private.key';target.parent.mkdir(parents=True,exist_ok=True)
+            self.backup();target=Path(os.getenv('LOCALAPPDATA',''))/'BO3 Community Client/identity.key';target.parent.mkdir(parents=True,exist_ok=True)
             data=Path(selected).read_bytes()
             if not 64<=len(data)<=4096:raise ValueError('Formato o tamaño de clave inválido.')
             temp=target.with_suffix('.tmp');temp.write_bytes(data);os.replace(temp,target)
-            self.status.set('Identidad importada; el motor validará su formato al arrancar.')
+            self.status.set('Identidad importada; la integración Steam validará su formato al conectar.')
         except Exception as e:self.error(e)
+    def native_paths(self):
+        base=Path(getattr(sys,'_MEIPASS',Path(__file__).parent))/'steam'
+        helper,dll=base/'BO3SteamAttach.exe',base/'BO3SteamFix.dll'
+        if not helper.is_file() or not dll.is_file():raise ValueError('Falta la integración Steam. Descarga y extrae el ZIP completo de la beta2.')
+        return helper,dll
     def join(self):
         selection=self.table.selection()
         if not selection:return
         try:
             s=self.servers[int(selection[0])];endpoint(s['address']);game=Path(self.game.get())
             name=self.name.get().strip()
-            if name and (len(name.encode('utf-8'))>16 or any(c in name for c in '\\";\n\r%')):raise ValueError('Nombre inválido (máximo 16 caracteres).')
+            if name and (len(name.encode('utf-8'))>16 or any(c in name for c in '\\";\n\r%')):raise ValueError('Nombre inválido (máximo 16 bytes).')
             if s.get('isPrivate')=='1':raise ValueError('Este servidor requiere contraseña; no se admite aún.')
-            if not (game/'BlackOps3.exe').is_file():raise ValueError('Selecciona tu instalación de BO3.')
-            if executable_checksum(game/'BlackOps3.exe')!=0x6531394:raise ValueError('La versión de Steam instalada no es compatible con el motor comunitario incluido. No se cambiará tu ejecutable. Puedes abrir Steam para jugar normalmente.')
-            engine=Path(getattr(sys,'_MEIPASS',Path(__file__).parent))/'engine/boiii.exe'
-            if not engine.is_file():raise ValueError('Falta el motor Windows en el paquete. Descarga la distribución completa.')
+            if not (game/'BlackOps3.exe').is_file():raise ValueError('Selecciona tu instalación de BO3 de Steam.')
+            if executable_checksum(game/'BlackOps3.exe')!=0x6531394:raise ValueError('Ejecutable Steam no compatible con esta beta. Actualiza BO3 desde Steam.')
+            helper,dll=self.native_paths()
             atomic_json(DATA/'settings.json',{'game':str(game),'name':name})
-            atomic_json(DATA/'join.request',{'version':1,'server':s['address'],'mode':s.get('playmode','0'),'name':name})
-            self.start_engine(engine,game)
-            self.status.set('Abriendo BO3; entra al modo seleccionado para conectar.')
+            atomic_json(DATA/'join.request',{'version':2,'server':s['address'],'mode':s.get('playmode','0'),'name':name})
+            self.start_engine(helper,dll,game)
+            self.status.set('Abriendo el BO3 original desde Steam; entra al menú del modo elegido.')
         except Exception as e:self.error(e)
-    def start_engine(self,engine,game):
+    def start_engine(self,helper,dll,game):
         try:
             status=json.loads((DATA/'status.json').read_text())
-            if time.time()-status.get('time',0)<5:return
+            if status.get('backend')=='steam-native' and time.time()-status.get('time',0)<5:return
         except (OSError,ValueError):pass
-        assets=engine.parent/'data'
-        if not assets.is_dir():raise ValueError('Faltan los archivos del motor: descarga el ZIP completo.')
-        target=Path(os.getenv('LOCALAPPDATA',''))/'boiii/data'
-        marker=DATA/'engine-assets-v3.0.0.ready'
-        if not marker.exists():
-            if target.exists():
-                backup=DATA/'backups'/('engine-data-'+uuid.uuid4().hex[:8]);backup.parent.mkdir(parents=True,exist_ok=True);shutil.copytree(target,backup)
-            shutil.copytree(assets,target,dirs_exist_ok=True)
-            marker.write_text('Ezz v3.0.0 assets installed.\n')
-        subprocess.Popen([str(engine),'-launch','-noupdate'],cwd=game)
+        if getattr(self,'attach_process',None) and self.attach_process.poll() is None:return
+        os.startfile('steam://run/311210')
+        self.attach_process=subprocess.Popen([str(helper),'--game',str(game/'BlackOps3.exe'),'--dll',str(dll)],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+        def monitor():
+            result=self.attach_process.communicate()[0].decode('utf-8',errors='replace').strip()
+            if self.attach_process.returncode:self.root.after(0,lambda:self.error(result or 'No se pudo cargar la integración Steam.'))
+        threading.Thread(target=monitor,daemon=True).start()
     def unlock(self):
-        from tkinter import messagebox
-        mode=self.mode.get()
-        if mode=='Todos':self.error('Elige Zombies o Multijugador en el filtro antes de aplicar Unlock All.');return
-        if not messagebox.askyesno('Unlock All','Se respaldará el perfil. Ezz Unlock All ajusta el rango a 997 y activa accesorios, camuflajes y GobbleGums del cliente. El inventario de Steam no cambia. ¿Aplicar?'):return
-        try:
-            game=Path(self.game.get());engine=Path(getattr(sys,'_MEIPASS',Path(__file__).parent))/'engine/boiii.exe'
-            if not engine.is_file():raise ValueError('Falta el motor en el paquete completo.')
-            if executable_checksum(game/'BlackOps3.exe')!=0x6531394:raise ValueError('Ejecutable no compatible con Ezz v3.0.0.')
-            backup=self.backup();(backup/'backup.ready').write_text('Respaldo previo a Unlock All.\n')
-            atomic_json(DATA/'join.request',{'version':1,'action':'unlock','mode':'0' if mode=='Zombies' else '1','backup':str(backup)})
-            self.start_engine(engine,game);self.status.set('Entra al menú elegido para aplicar Unlock All con respaldo.')
-        except Exception as e:self.error(e)
+        self.error('La beta2 prueba conexión en el BO3 original de Steam. Los cambios de perfil y Unlock All todavía no están habilitados para este motor; tu progreso Steam se conserva.')
     def verify(self):
-        try:
-            mode=self.mode.get()
-            if mode=='Todos':raise ValueError('Elige Zombies o Multijugador primero.')
-            game=Path(self.game.get());engine=Path(getattr(sys,'_MEIPASS',Path(__file__).parent))/'engine/boiii.exe'
-            if not engine.is_file() or executable_checksum(game/'BlackOps3.exe')!=0x6531394:raise ValueError('Selecciona un juego compatible y el paquete completo.')
-            atomic_json(DATA/'join.request',{'version':1,'action':'verify','mode':'0' if mode=='Zombies' else '1'})
-            self.start_engine(engine,game);self.status.set('Entra al menú elegido: se desactivarán los desbloqueos simulados para comprobar el progreso real.')
-        except Exception as e:self.error(e)
+        self.status.set('Esta beta no modifica tu rango, accesorios ni inventario de Steam. Comprueba el mismo perfil abriendo el juego desde Steam.')
     def heartbeat(self):
         try:
             status=json.loads((DATA/'status.json').read_text())
-            if time.time()-status.get('time',0)<8:self.status.set(status.get('message','Motor activo'))
+            if status.get('backend')=='steam-native' and time.time()-status.get('time',0)<8:self.status.set(status.get('message','Motor activo'))
         except (OSError,ValueError):pass
         self.root.after(1000,self.heartbeat)
 

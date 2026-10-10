@@ -29,11 +29,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python windows/app/client.py --smoke-test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Build engine and app
+      - name: Build Steam DLL and app
         shell: pwsh
         run: ./windows/build.ps1
       - uses: actions/upload-artifact@v4
         with:
-          name: BO3CommunityClient-Windows-beta1
-          path: windows/dist/BO3CommunityClient-Windows-beta1.zip
+          name: BO3CommunityClient-Windows-beta2
+          path: windows/dist/BO3CommunityClient-Windows-beta2.zip
           if-no-files-found: error

@@ -20,3 +20,6 @@
 **/__pycache__/
 windows/app/engine/
 *.spec
+
+windows/app/steam/
+windows/build-steam/
