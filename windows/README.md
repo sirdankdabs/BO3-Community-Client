@@ -6,7 +6,7 @@ El motor nativo es Ezz BOIII v3.0.0, fijado al commit 5aa7fac39c51438d9c1e312b99
 
 ## Uso
 
-1. Descargar el ZIP completo de la compilación Windows y extraerlo. Mantener las carpetas internas.
+1. Descargar el ZIP completo de la compilación Windows y extraerlo. Mantener las carpetas internas. Ejecutar Install.cmd para instalar por usuario y crear el acceso directo; también se puede abrir la app directamente.
 2. Abrir BO3CommunityClient.exe, seleccionar la carpeta de BO3 de Steam y actualizar la lista.
 3. Seleccionar servidor, nombre y Unirse. Entrar al menú Zombies o Multijugador correspondiente para conectar.
 4. Unlock All respalda el perfil y ejecuta la opción del motor Ezz. El bridge solicita rango 997 con XP tomada de las tablas nativas, como en Mac; falta comprobarlo dentro del juego. Esta beta no traslada todavía la prueba de experiencia de armas beta47. Los desbloqueos por hooks requieren el motor activo; los GobbleGums locales de Ezz y su perfil no equivalen al inventario de Steam.

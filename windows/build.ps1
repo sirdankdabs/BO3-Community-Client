@@ -20,4 +20,5 @@ python -m PyInstaller --noconfirm --clean --windowed --onedir --name BO3Communit
 if ($LASTEXITCODE -ne 0) { throw 'Falló el empaquetado de la app.' }
 Copy-Item engine/LICENSE dist/BO3CommunityClient/LICENSE-engine.txt
 Copy-Item README.md dist/BO3CommunityClient/README.txt
+Copy-Item installer/* dist/BO3CommunityClient/ -Force
 Compress-Archive -Path dist/BO3CommunityClient -DestinationPath dist/BO3CommunityClient-Windows-beta1.zip -Force

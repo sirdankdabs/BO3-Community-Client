@@ -114,7 +114,7 @@ class App:
         self.table.pack(fill='both',expand=True,padx=10)
         controls=ttk.Frame(root,padding=10);controls.pack(fill='x')
         ttk.Label(controls,text='Nombre:').pack(side='left');ttk.Entry(controls,textvariable=self.name,width=18).pack(side='left')
-        for text,action in [('Unirse',self.join),('Respaldar perfil',self.backup),('Importar identidad',self.import_key),('Unlock All',self.unlock),('Abrir carpeta de datos',lambda:os.startfile(str(DATA)))]:ttk.Button(controls,text=text,command=action).pack(side='left',padx=4)
+        for text,action in [('Unirse',self.join),('Respaldar perfil',self.backup),('Importar identidad',self.import_key),('Exportar identidad',self.export_key),('Unlock All',self.unlock),('Abrir carpeta de datos',lambda:os.startfile(str(DATA)))]:ttk.Button(controls,text=text,command=action).pack(side='left',padx=4)
         ttk.Label(root,textvariable=self.status,wraplength=950,padding=10).pack(fill='x')
         self.search.trace_add('write',lambda *args:self.render());self.mode.trace_add('write',lambda *args:self.render())
         root.after(1000,self.heartbeat)
@@ -134,7 +134,9 @@ class App:
             except ValueError:continue
             if self.search.get().casefold() not in (s.get('hostname','')+' '+s.get('mapname','')).casefold():continue
             if self.mode.get()!='Todos' and mode!=self.mode.get():continue
-            if self.empty.get() and not clients:continue
+            try:humans=max(0,clients-int(s.get('bots',0)))
+            except ValueError:humans=clients
+            if self.empty.get() and not humans:continue
             if self.full.get() and maximum and clients>=maximum:continue
             if self.mods.get() and (s.get('modId','0') not in ('','0') or s.get('usermapId','0') not in ('','0')):continue
             self.table.insert('', 'end',iid=str(i),values=(re.sub(r'\^[0-9]','',s.get('hostname','')),mode,s.get('mapname',''),f'{clients}/{maximum}',s['ping'],s['address']))
@@ -157,6 +159,14 @@ class App:
         for name,src in [('players',Path(self.game.get())/'players'),('boiii',Path(os.getenv('LOCALAPPDATA',''))/'boiii')]:
             if src.is_dir():shutil.copytree(src,folder/name)
         self.status.set(f'Respaldo: {folder}');return folder
+    def export_key(self):
+        from tkinter import filedialog
+        source=Path(os.getenv('LOCALAPPDATA',''))/'boiii/user/ezz-private.key'
+        if not source.is_file():self.error('No hay identidad todavía. Arranca el motor una vez.');return
+        target=filedialog.asksaveasfilename(title='Guardar respaldo de identidad',initialfile='bo3-identity.key',defaultextension='.key')
+        if target:
+            try:shutil.copy2(source,target);self.status.set('Identidad exportada; guárdala en privado.')
+            except OSError as e:self.error(e)
     def import_key(self):
         from tkinter import filedialog,messagebox
         selected=filedialog.askopenfilename(title='Clave privada de identidad BOIII/Ezz')
