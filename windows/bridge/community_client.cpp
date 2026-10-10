@@ -6,6 +6,8 @@
 #include <fstream>
 #include <regex>
 #include <charconv>
+#include <ctime>
+#include <climits>
 namespace community_client {
 namespace {
 std::filesystem::path data_dir() {

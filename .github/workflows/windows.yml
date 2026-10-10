@@ -16,9 +16,12 @@ jobs:
         with:
           python-version: '3.12'
       - uses: microsoft/setup-msbuild@v2
-      - uses: Jarod42/install-premake5@v7
-        with:
-          msdev: vs2022
+      - name: Install official Premake binary
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://github.com/premake/premake-core/releases/download/v5.0.0/premake-5.0.0-windows.zip -OutFile "$env:RUNNER_TEMP/premake.zip"
+          Expand-Archive "$env:RUNNER_TEMP/premake.zip" "$env:RUNNER_TEMP/premake"
+          "$env:RUNNER_TEMP/premake" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Check launcher and GUI
         shell: pwsh
         run: |

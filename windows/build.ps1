@@ -14,6 +14,7 @@ python -m pip install -r requirements-build.txt
 if ($LASTEXITCODE -ne 0) { throw 'Falló la instalación de herramientas.' }
 New-Item -ItemType Directory -Force -Path app/engine | Out-Null
 Copy-Item engine/build/bin/x64/Release/boiii.exe app/engine/boiii.exe -Force
+if (Test-Path app/engine/data) { Remove-Item app/engine/data -Recurse -Force }
 Copy-Item engine/data app/engine/data -Recurse -Force
 python -m PyInstaller --noconfirm --clean --windowed --onedir --name BO3CommunityClient --add-data 'app/engine;engine' app/client.py
 if ($LASTEXITCODE -ne 0) { throw 'Falló el empaquetado de la app.' }
