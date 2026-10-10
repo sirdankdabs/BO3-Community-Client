@@ -66,7 +66,7 @@ struct Change {
 };
 // The two instructions are restored before returning to Steam matchmaking.
 Change initial_state{0x14134C590+0x170},dw_connection_check{0x1421F137D};
-struct Target { bool active=false,launched=false,queried=false;Address adr{};SOCKET socket=INVALID_SOCKET;uint64_t started=0,lastQuery=0,lastChallenge=0;std::string nonce,name,map,gametype;int mode=0;uint64_t serverXuid=0,steamXuid=0; } target;
+struct Target { bool active=false,launched=false,launching=false,queried=false;Address adr{};SOCKET socket=INVALID_SOCKET;uint64_t started=0,lastQuery=0,lastChallenge=0;std::string nonce,name,map,gametype;int mode=0;uint64_t serverXuid=0,steamXuid=0; } target;
 std::array<uint8_t,32> challenge{};bool haveChallenge=false,usedChallenge=false;
 ecc_key identity{};uint64_t identityXuid=0;std::string publicKey;bool keyReady=false;int prng=-1;
 void require(int result,const char* reason){if(result!=CRYPT_OK)throw std::runtime_error(reason);}
@@ -91,7 +91,7 @@ bool matches(const Address* adr){return adr&&target.active&&adr->ip==target.adr.
 bool send_bytes(const uint8_t* data,size_t size){sockaddr_in to{};to.sin_family=AF_INET;to.sin_addr.s_addr=target.adr.ip;to.sin_port=htons(target.adr.port);return sendto(target.socket,reinterpret_cast<const char*>(data),static_cast<int>(size),0,reinterpret_cast<sockaddr*>(&to),sizeof(to))==static_cast<int>(size);}
 bool raw(std::string_view command){std::vector<uint8_t> data{255,255,255,255};data.insert(data.end(),command.begin(),command.end());return send_bytes(data.data(),data.size());}
 void end(const std::string& reason){
- target.active=false;initial_state.restore();dw_connection_check.restore();if(target.socket!=INVALID_SOCKET){closesocket(target.socket);target.socket=INVALID_SOCKET;}haveChallenge=usedChallenge=false;status(reason);log(reason);
+ target.active=false;target.launching=false;initial_state.restore();dw_connection_check.restore();if(target.socket!=INVALID_SOCKET){closesocket(target.socket);target.socket=INVALID_SOCKET;}haveChallenge=usedChallenge=false;status(reason);log(reason);
 }
 bool send_hook(int sock,int length,const void* bytes,const Address* to){
  if(!matches(to))return originalSend(sock,length,bytes,to);
@@ -126,7 +126,7 @@ void resend_hook(int client){
  originalResend(client);
 }
 int lookup_hook(uint64_t xuid){return target.active&&xuid==identityXuid?0:originalLookup(xuid);}
-void disconnect_hook(int client,bool deactivate){if(client==0&&target.active)end("Sesión comunitaria terminada; Steam restaurado");originalDisconnect(client,deactivate);}
+void disconnect_hook(int client,bool deactivate){if(client==0&&target.active&&!target.launching)end("Sesión comunitaria terminada; Steam restaurado");originalDisconnect(client,deactivate);}
 void cache_hook(int client){if(!target.active)originalCache(client);}
 bool safe_token(const std::string& s){return !s.empty()&&s.size()<64&&s.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")==s.npos;}
 void info_response(std::string_view data){
@@ -176,8 +176,9 @@ void launch(){
  auto p=peer();if(!p)return;target.steamXuid=at<uint64_t(*)(int)>(0x141EBA880)(0);
  auto initial=at<uint32_t*>(initial_state.va);if(!accessible(initial,4)||*initial>12)throw std::runtime_error("Unexpected CL_ConnectFromLobby state instruction");
  auto branch=at<uint8_t*>(dw_connection_check.va);if(!accessible(branch,1)||(*branch<0x70||*branch>0x7f))throw std::runtime_error("Unexpected native connection check instruction");
- try{initial_state.apply({4,0,0,0});dw_connection_check.apply({0xeb});SessionInfo info{};target.launched=true;
+ try{initial_state.apply({4,0,0,0});dw_connection_check.apply({0xeb});SessionInfo info{};target.launched=true;target.launching=true;
  at<void(*)(int,SessionInfo*,const Address*,int,int,const char*,const char*,const char*)>(0x14134C590)(0,&info,&target.adr,1,0,target.map.c_str(),target.gametype.c_str(),"");
+ target.launching=false;
  status("Conectando al servidor dentro del BO3 original de Steam");
  }catch(...){end("No se pudo preparar la conexión nativa");throw;}
 }
