@@ -95,9 +95,9 @@ struct component final : generic_component {
 #endif
  void post_unpack() override {
    if(game::is_server())return;
-   scheduler::on_game_initialized([] {scheduler::loop([] {
+   scheduler::once([] {scheduler::loop([] {
      try {tick();} catch(const std::exception& e) {printf("Community Client: %s\n",e.what());}
-   },scheduler::main,1s);},scheduler::main);
+   },scheduler::main,1s);},scheduler::dvars_loaded);
  }
 };
 }
