@@ -28,6 +28,6 @@ jobs:
         run: ./windows/build.ps1
       - uses: actions/upload-artifact@v4
         with:
-          name: BO3CommunityClient-Windows-beta2
-          path: windows/dist/BO3CommunityClient-Windows-beta2.zip
+          name: BO3CommunityClient-Windows-beta3
+          path: windows/dist/BO3CommunityClient-Windows-beta3.zip
           if-no-files-found: error

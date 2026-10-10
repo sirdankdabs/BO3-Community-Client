@@ -25,4 +25,4 @@ Copy-Item LICENSE dist/BO3CommunityClient/LICENSE-app.txt
 Copy-Item engine/LICENSE dist/BO3CommunityClient/LICENSE-engine.txt
 Copy-Item README.md dist/BO3CommunityClient/README.txt
 Copy-Item installer/* dist/BO3CommunityClient/ -Force
-Compress-Archive -Path dist/BO3CommunityClient -DestinationPath dist/BO3CommunityClient-Windows-beta2.zip -Force
+Compress-Archive -Path dist/BO3CommunityClient -DestinationPath dist/BO3CommunityClient-Windows-beta3.zip -Force

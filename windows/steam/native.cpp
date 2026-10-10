@@ -28,6 +28,8 @@ void RunPatching();
 extern "C" {
 #include <tomcrypt.h>
 }
+std::atomic_bool communityUnlock=false;
+bool BO3Community_UnlockEnabled(){return communityUnlock.load();}
 namespace community {
 namespace fs=std::filesystem;
 struct Address { uint32_t ip;uint16_t port;uint16_t pad;int type;int local; };
@@ -66,7 +68,7 @@ struct Change {
 };
 // The two instructions are restored before returning to Steam matchmaking.
 Change initial_state{0x14134C590+0x170},dw_connection_check{0x1421F137D};
-struct Target { bool active=false,launched=false,launching=false,queried=false;Address adr{};SOCKET socket=INVALID_SOCKET;uint64_t started=0,lastQuery=0,lastChallenge=0;std::string nonce,name,map,gametype;int mode=0;uint64_t serverXuid=0,steamXuid=0; } target;
+struct Target { bool active=false,launched=false,launching=false,queried=false;Address adr{};SOCKET socket=INVALID_SOCKET;uint64_t started=0,lastQuery=0,lastChallenge=0;std::string nonce,name,map,gametype,usermap,mod;bool workshopPrepared=false,modChanging=false;int mode=0;uint64_t serverXuid=0,steamXuid=0; } target;
 std::array<uint8_t,32> challenge{};bool haveChallenge=false,usedChallenge=false;
 ecc_key identity{};uint64_t identityXuid=0;std::string publicKey;bool keyReady=false;int prng=-1;
 void require(int result,const char* reason){if(result!=CRYPT_OK)throw std::runtime_error(reason);}
@@ -133,10 +135,11 @@ void disconnect_hook(int client,bool deactivate){if(client==0&&target.active&&!t
 void cache_hook(int client){if(!target.active)originalCache(client);}
 bool safe_token(const std::string& s){return !s.empty()&&s.size()<64&&s.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")==s.npos;}
 void info_response(std::string_view data){
+ if(target.queried)return;
  auto pos=data.find_first_of(" \n");if(pos==data.npos)return;auto fields=wire::info(data.substr(pos+1));
  if(fields["challenge"]!=target.nonce||fields["protocol"]!="8"||fields["gamename"]!="T7")return;
  if(fields["playmode"]!=std::to_string(target.mode))throw std::runtime_error("Server mode differs from request");
- for(auto name:{"usermapId","modId"})if(!fields[name].empty()&&fields[name]!="0")throw std::runtime_error("Workshop content needs native Steam integration testing; use a stock-map server for this beta");
+ for(auto name:{"usermapId","modId"}){auto value=fields[name];if(value=="0")value.clear();if(value.size()>20||value.find_first_not_of("0123456789")!=value.npos)throw std::runtime_error("Invalid Workshop identifier");if(!value.empty()){size_t used;std::stoull(value,&used);if(used!=value.size())throw std::runtime_error("Invalid Workshop identifier");}if(std::string_view(name)=="usermapId")target.usermap=value;else target.mod=value;}
  if(!safe_token(fields["mapname"])||!safe_token(fields["gametype"]))throw std::runtime_error("Invalid map or gametype");
  target.map=fields["mapname"];target.gametype=fields["gametype"];target.queried=true;
  auto xuid=fields["xuid"];if(!xuid.empty()){size_t used;target.serverXuid=std::stoull(xuid,&used,16);if(used!=xuid.size())throw std::runtime_error("Invalid server XUID");}
@@ -176,11 +179,19 @@ void begin(const rapidjson::Document& request){
 }
 void launch(){
  if(at<int(*)()>(0x1420EA5B0)()!=target.mode)return;
+ if(!target.workshopPrepared){
+  at<void(*)()>(0x1420C9F40)();
+  for(auto item:{std::pair{2,target.usermap},std::pair{1,target.mod}})if(!item.second.empty()&&!at<void*(*)(int,const char*)>(0x1420C99A0)(item.first,item.second.c_str()))throw std::runtime_error("Workshop pendiente: suscríbete y termina la descarga en Steam; después vuelve a Unirse");
+  auto desired=target.mod.empty()?(target.usermap.empty()?"":"usermaps"):target.mod.c_str();
+  const char* current=at<const char*(*)()>(0x1420CAF00)();target.workshopPrepared=true;
+  if(std::string(current?current:"")!=desired){target.modChanging=true;at<void(*)(int,const char*,bool)>(0x1420CA1B0)(0,desired,true);status("Cargando contenido Workshop de Steam");return;}
+ }
+ if(target.modChanging){if(!at<bool(*)(int)>(0x1420CA660)(0))return;target.modChanging=false;}
  auto p=peer();if(!p)return;target.steamXuid=at<uint64_t(*)(int)>(0x141EBA880)(0);
  auto initial=at<uint32_t*>(initial_state.va);if(!accessible(initial,4)||*initial>12)throw std::runtime_error("Unexpected CL_ConnectFromLobby state instruction");
  auto branch=at<uint8_t*>(dw_connection_check.va);if(!accessible(branch,1)||(*branch<0x70||*branch>0x7f))throw std::runtime_error("Unexpected native connection check instruction");
- try{initial_state.apply({4,0,0,0});dw_connection_check.apply({0xeb});SessionInfo info{};target.launched=true;target.launching=true;
- at<void(*)(int,SessionInfo*,const Address*,int,int,const char*,const char*,const char*)>(0x14134C590)(0,&info,&target.adr,1,0,target.map.c_str(),target.gametype.c_str(),"");
+ try{initial_state.apply({4,0,0,0});dw_connection_check.apply({0xeb});SessionInfo info{};target.started=GetTickCount64();target.launched=true;target.launching=true;
+ at<void(*)(int,SessionInfo*,const Address*,int,int,const char*,const char*,const char*)>(0x14134C590)(0,&info,&target.adr,1,0,target.map.c_str(),target.gametype.c_str(),target.usermap.c_str());
  target.launching=false;
  status("Conectando al servidor dentro del BO3 original de Steam");
  }catch(...){end("No se pudo preparar la conexión nativa");throw;}
@@ -201,7 +212,7 @@ void tick(){
  }
  static uint64_t nextStatus=0,nextRequest=0;auto now=GetTickCount64();
  if(now>=nextStatus){status();nextStatus=now+1000;}
- if(target.active){if(now-target.started>45000&&(!target.launched||state()<=5)){end("Conexión agotada; Steam restaurado");return;}
+ if(target.active){if(now-target.started>(target.launched?45000:180000)&&(!target.launched||state()<=5)){end("Conexión agotada; Steam restaurado");return;}
   if(!target.queried&&now-target.lastQuery>2000){raw("getInfo\n"+target.nonce);target.lastQuery=now;}
   if(target.queried&&!target.launched)launch();
   if(target.launched&&state()>5){auto p=connection();if(p&&target.serverXuid){auto remote=reinterpret_cast<Address*>(p+0x2455c);*remote=target.adr;memcpy(p+0x24b68,&target.serverXuid,8);} }
@@ -212,11 +223,30 @@ void tick(){
  if(fs::file_size(path)>8192){fs::remove(path);throw std::runtime_error("Request exceeds limit");}
  std::ifstream in(path,std::ios::binary);std::string text((std::istreambuf_iterator<char>(in)),{});in.close();rapidjson::Document d;d.Parse(text.c_str());fs::remove(path);
  if(d.HasParseError()||!d.IsObject()||!d.HasMember("version")||!d["version"].IsInt()||d["version"].GetInt()!=2||!d.HasMember("mode")||!d["mode"].IsString())throw std::runtime_error("Unsupported Steam request");
- if(d.HasMember("action"))throw std::runtime_error("Los cambios permanentes de perfil de Steam están desactivados en esta prueba de conexión");
+ if(d.HasMember("action")){
+  if(!d["action"].IsString()||std::string_view(d["action"].GetString())!="unlock")throw std::runtime_error("Unsupported action");
+  if(!protectionInstalled||target.active)throw std::runtime_error("Espera a las protecciones y vuelve al menú sin conexión comunitaria");
+  bool enabled=d.HasMember("enabled")&&d["enabled"].IsBool()&&d["enabled"].GetBool();
+  communityUnlock=enabled;auto temp=folder()/L"unlocks.tmp",dest=folder()/L"unlocks.enabled";
+  if(enabled){std::ofstream out(temp);out<<"1";out.close();if(!MoveFileExW(temp.c_str(),dest.c_str(),MOVEFILE_REPLACE_EXISTING))throw std::runtime_error("Cannot save unlock preference");}else fs::remove(dest);
+  status(enabled?"Unlock All activo: armas, accesorios, camos, desafíos e inventario local; cantidades Steam no permanentes":"Unlock All desactivado");return;
+ }
  begin(d);
 }
 void frame_hook(){originalFrame();try{tick();}catch(const std::exception& e){if(target.active)end(e.what());else status(e.what());log(e.what());}}
 template<class T>void hook(uintptr_t va,T callback,T* original){auto p=at<void*>(va);if(!accessible(p,16))throw std::runtime_error("Native hook target unreadable");auto result=MH_CreateHook(p,reinterpret_cast<void*>(callback),reinterpret_cast<void**>(original));if(result!=MH_OK)throw std::runtime_error("Native hook creation failed");}
+
+using Purchased=bool(*)(int,int,int);Purchased originalPurchased;
+using Locked=bool(*)(int,int,int,int);Locked originalAttachment,originalSlot,originalOption;
+using Challenge=bool(*)(int,int,uint16_t,int);Challenge originalChallenge;
+using Outfit=bool(*)(int,int,uint32_t,int,int);Outfit originalOutfit;
+bool purchased_hook(int m,int c,int i){return communityUnlock||originalPurchased(m,c,i);}
+bool attachment_hook(int m,int c,int i,int a){return !communityUnlock&&originalAttachment(m,c,i,a);}
+bool slot_hook(int m,int c,int i,int a){return !communityUnlock&&originalSlot(m,c,i,a);}
+bool option_hook(int m,int c,int i,int a){return !communityUnlock&&originalOption(m,c,i,a);}
+bool challenge_hook(int m,int c,uint16_t i,int a){return communityUnlock||originalChallenge(m,c,i,a);}
+bool outfit_hook(int m,int c,uint32_t i,int t,int a){return !communityUnlock&&originalOutfit(m,c,i,t,a);}
+
 DWORD WINAPI initialize(void*){
  try{
   status();if(bo3::current_build()!=bo3::Build::September2026)throw std::runtime_error("This Steam executable is not supported");
@@ -225,6 +255,9 @@ DWORD WINAPI initialize(void*){
   WSADATA wsa{};if(WSAStartup(MAKEWORD(2,2),&wsa)!=0)throw std::runtime_error("Winsock unavailable");
   auto result=MH_Initialize();if(result!=MH_OK&&result!=MH_ERROR_ALREADY_INITIALIZED)throw std::runtime_error("MinHook unavailable");
   hook(0x1420EC680,frame_hook,&originalFrame);hook(0x14134B990,resend_hook,&originalResend);hook(0x1422B9240,send_hook,&originalSend);hook(0x14211AB40,oob_hook,&originalOob);hook(0x1422B9040,receive_hook,&originalReceive);hook(0x141EBA340,lookup_hook,&originalLookup);hook(0x141EBA390,signed_lookup_hook,&originalSignedLookup);hook(0x141EBA6A0,local_xuid_hook,&originalIsLocal);hook(0x14135D880,disconnect_hook,&originalDisconnect);hook(0x1400A7570,cache_hook,&originalCache);
+  communityUnlock=fs::exists(folder()/L"unlocks.enabled");
+  hook(0x1426304B0,purchased_hook,&originalPurchased);hook(0x14262F760,attachment_hook,&originalAttachment);hook(0x14262F560,slot_hook,&originalSlot);hook(0x142631550,option_hook,&originalOption);hook(0x142636480,challenge_hook,&originalChallenge);hook(0x142628EC0,outfit_hook,&originalOutfit);
+  for(auto va:{0x1426304B0ULL,0x14262F760ULL,0x14262F560ULL,0x142631550ULL,0x142636480ULL,0x142628EC0ULL})if(MH_EnableHook(at<void*>(va))!=MH_OK)throw std::runtime_error("Unlock hook activation failed");
   // Enable only this module's hooks, leaving any other MinHook users untouched.
   for(auto va:{0x14134B990ULL,0x1422B9240ULL,0x14211AB40ULL,0x1422B9040ULL,0x141EBA340ULL,0x141EBA390ULL,0x141EBA6A0ULL,0x14135D880ULL,0x1400A7570ULL,0x1420EC680ULL})if(MH_EnableHook(at<void*>(va))!=MH_OK)throw std::runtime_error("Native hook activation failed");
   status("BO3 original de Steam conectado a la app; partidas públicas conservan su transporte");return 0;

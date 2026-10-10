@@ -92,7 +92,7 @@ class App:
         DATA.mkdir(parents=True,exist_ok=True)
         try:self.settings=json.loads((DATA/'settings.json').read_text())
         except (OSError,ValueError):self.settings={}
-        root.title('BO3 Community Client · Steam Windows beta2');root.geometry('1000x660')
+        root.title('BO3 Community Client · Steam Windows beta3');root.geometry('1000x660')
         self.game=tk.StringVar(value=self.settings.get('game',find_game()))
         self.name=tk.StringVar(value=self.settings.get('name',''))
         self.search=tk.StringVar();self.mode=tk.StringVar(value='Todos')
@@ -115,6 +115,8 @@ class App:
         controls=ttk.Frame(root,padding=10);controls.pack(fill='x')
         ttk.Label(controls,text='Nombre:').pack(side='left');ttk.Entry(controls,textvariable=self.name,width=18).pack(side='left')
         for text,action in [('Unirse',self.join),('Respaldar perfil',self.backup),('Importar identidad',self.import_key),('Exportar identidad',self.export_key),('Abrir carpeta de datos',lambda:os.startfile(str(DATA)))]:ttk.Button(controls,text=text,command=action).pack(side='left',padx=4)
+        features=ttk.Frame(root,padding=4);features.pack(fill='x')
+        for text,action in [('Workshop del servidor',self.workshop),('Activar Unlock All',self.unlock),('Desactivar Unlock All',lambda:self.unlock(False))]:ttk.Button(features,text=text,command=action).pack(side='left',padx=6)
         ttk.Label(root,textvariable=self.status,wraplength=950,padding=10).pack(fill='x')
         self.search.trace_add('write',lambda *args:self.render());self.mode.trace_add('write',lambda *args:self.render())
         root.after(1000,self.heartbeat)
@@ -188,7 +190,7 @@ class App:
     def native_paths(self):
         base=Path(getattr(sys,'_MEIPASS',Path(__file__).parent))/'steam'
         helper,dll=base/'BO3SteamAttach.exe',base/'BO3SteamFix.dll'
-        if not helper.is_file() or not dll.is_file():raise ValueError('Falta la integración Steam. Descarga y extrae el ZIP completo de la beta2.')
+        if not helper.is_file() or not dll.is_file():raise ValueError('Falta la integración Steam. Descarga y extrae el ZIP completo de la beta3.')
         return helper,dll
     def join(self):
         selection=self.table.selection()
@@ -219,10 +221,28 @@ class App:
             result=process.communicate()[0].decode('utf-8',errors='replace').strip()
             if process.returncode:self.root.after(0,lambda:self.error(result or 'No se pudo cargar la integración Steam.'))
         threading.Thread(target=monitor,daemon=True).start()
-    def unlock(self):
-        self.error('La beta2 prueba conexión en el BO3 original de Steam. Los cambios de perfil y Unlock All todavía no están habilitados para este motor; tu progreso Steam se conserva.')
-    def verify(self):
-        self.status.set('Esta beta no modifica tu rango, accesorios ni inventario de Steam. Comprueba el mismo perfil abriendo el juego desde Steam.')
+    def workshop(self):
+        selection=self.table.selection()
+        if not selection:return
+        server=self.servers[int(selection[0])]
+        items=[server.get(key,'') for key in ('usermapId','modId')]
+        items=[v for v in items if v and v!='0']
+        if not items:self.status.set('Este servidor usa contenido oficial.');return
+        for value in items:
+            if not value.isascii() or not value.isdigit() or len(value)>20:self.error('ID Workshop inválido.');return
+            os.startfile('steam://url/CommunityFilePage/'+value)
+        self.status.set('Suscríbete en Steam, espera la descarga y pulsa Unirse. La app cargará el mapa/mod.')
+    def unlock(self,enabled=True):
+        try:
+            game=Path(self.game.get())
+            if not (game/'BlackOps3.exe').is_file():raise ValueError('Selecciona BO3 de Steam.')
+            if executable_checksum(game/'BlackOps3.exe')!=0x6531394:raise ValueError('Ejecutable Steam incompatible.')
+            helper,dll=self.native_paths()
+            if enabled:self.backup()
+            atomic_json(DATA/'join.request',{'version':2,'mode':'0','action':'unlock','enabled':enabled})
+            self.start_engine(helper,dll,game)
+            self.status.set('Entra al menú del juego para aplicar Unlock All. Los objetos se muestran mientras el parche está cargado.')
+        except Exception as e:self.error(e)
     def heartbeat(self):
         try:
             status=json.loads((DATA/'status.json').read_text())
