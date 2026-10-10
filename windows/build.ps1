@@ -18,6 +18,10 @@ if (Test-Path app/engine/data) { Remove-Item app/engine/data -Recurse -Force }
 Copy-Item engine/data app/engine/data -Recurse -Force
 python -m PyInstaller --noconfirm --clean --windowed --onedir --name BO3CommunityClient --add-data 'app/engine;engine' app/client.py
 if ($LASTEXITCODE -ne 0) { throw 'Falló el empaquetado de la app.' }
+$smoke = Start-Process -FilePath 'dist/BO3CommunityClient/BO3CommunityClient.exe' -ArgumentList '--smoke-test' -PassThru
+if (!$smoke.WaitForExit(20000)) { $smoke.Kill(); throw 'La app empaquetada no cerró en la prueba de inicio.' }
+if ($smoke.ExitCode -ne 0) { throw 'Falló el inicio de la app empaquetada.' }
+Copy-Item LICENSE dist/BO3CommunityClient/LICENSE-app.txt
 Copy-Item engine/LICENSE dist/BO3CommunityClient/LICENSE-engine.txt
 Copy-Item README.md dist/BO3CommunityClient/README.txt
 Copy-Item installer/* dist/BO3CommunityClient/ -Force
