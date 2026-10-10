@@ -1,0 +1,36 @@
+name: Windows beta
+on:
+  workflow_dispatch:
+  push:
+    paths: ['windows/**', '.github/workflows/windows.yml', '.gitmodules']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: microsoft/setup-msbuild@v2
+      - uses: Jarod42/install-premake5@v7
+        with:
+          msdev: vs2022
+      - name: Check launcher and GUI
+        shell: pwsh
+        run: |
+          python -m unittest discover -s windows/tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python windows/app/client.py --smoke-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build engine and app
+        shell: pwsh
+        run: ./windows/build.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BO3CommunityClient-Windows-beta1
+          path: windows/dist/BO3CommunityClient-Windows-beta1.zip
+          if-no-files-found: error
