@@ -8,6 +8,7 @@
 #include <charconv>
 #include <ctime>
 #include <climits>
+#include "community_progress.hpp"
 namespace community_client {
 namespace {
 std::filesystem::path data_dir() {
@@ -65,6 +66,10 @@ void tick() {
     }
     const int selected_mode=std::stoi(mode);auto rank=rank997(selected_mode);
     if(!rank) {status("Tablas de XP no disponibles; vuelve a intentarlo en el menú");return;}
+    int weapons=0,gums=0;
+    const bool saved=community_progress::apply(selected_mode,weapons,gums);
+    printf("Community Client local progress: weapons=%d gums=%d save_request=%d\n",weapons,gums,saved);
+    if(!saved) {status("No se pudo guardar el progreso local; Unlock All no se aplicó. Revisa el perfil y vuelve a intentar.");std::filesystem::remove(file);return;}
     commands=*rank+"unlockall\n";
     // unlockall appends its own rank commands. Apply 997 after that queue drains.
     scheduler::once([selected_mode,rank=*rank] {

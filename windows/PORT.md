@@ -4,6 +4,6 @@ La app está implementada y usa el motor nativo Ezz v3.0.0 mediante un component
 
 Implementado: navegador UDP, filtros, ordenamiento, nombre, solicitud de unión a servidor, detección de Steam y bibliotecas, respaldo, importación de identidad, Unlock All con respaldo, empaquetado EXE y compilación Windows en CI.
 
-Pendiente de prueba en el juego: conexión, mapas, importación real de identidad, guardado y compatibilidad con la instalación del probador. La beta1 solicita rango 997 con las tablas nativas. El módulo experimental de XP de armas de beta47 no está portado todavía. No confundir el inventario local de Ezz con el inventario de Steam.
+Pendiente de prueba en el juego: conexión, mapas, importación real de identidad, guardado y compatibilidad con la instalación del probador. La beta1 solicita rango 997 con las tablas nativas. El módulo de XP de armas usa las tablas de niveles y la API DDL nativa Windows. También solicita guardado de GobbleGums locales; ambas funciones requieren verificación dentro del juego. No confundir el inventario local de Ezz con el inventario de Steam.
 
 Ver windows/README.md y el estado de GitHub Actions antes de descargar. No anunciar paridad completa solo porque compile.

@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 if (!(Test-Path 'engine/src/client/main.cpp')) { throw 'Clona el repositorio con git clone --recurse-submodules.' }
 Copy-Item bridge/community_client.cpp engine/src/client/component/community_client.cpp -Force
+Copy-Item bridge/progress.hpp engine/src/client/component/community_progress.hpp -Force
 Push-Location engine
 premake5 vs2022
 if ($LASTEXITCODE -ne 0) { throw 'Premake falló.' }
