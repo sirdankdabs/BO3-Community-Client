@@ -11,7 +11,7 @@ int main(){
  uint32_t count,index;uint64_t id;memcpy(&id,f[2].data()+8,8);memcpy(&count,f[2].data()+16,4);memcpy(&index,f[2].data()+20,4);
  if(id!=19||count!=3||index!=2)return 3;
  std::vector<uint8_t> merged;for(auto& p:f)merged.insert(merged.end(),p.begin()+24,p.end());if(merged!=payload)return 4;
- uint8_t raw[]={255,255,255,255,'p'};auto p=packet(raw,5);if(p.offset!=0||p.remote!=4)return 5;
+ uint8_t raw[]={255,255,255,255,'p'};auto p=packet(raw,5);if(p.offset!=0||p.remote!=4||p.local!=4)return 5;
  uint8_t framed[]={0x40,9};p=packet(framed,2);if(p.offset!=1||p.local!=0||p.remote!=4)return 6;
  try{uint8_t bad[]={0x77,9};packet(bad,2);return 7;}catch(const std::runtime_error&){}
  try{connect("connect \"\\name\\truncated",1,"");return 8;}catch(const std::runtime_error&){}

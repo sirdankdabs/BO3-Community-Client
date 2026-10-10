@@ -155,7 +155,7 @@ int receive_hook(Address* from,Message* msg){
    }
    if(!target.launched||!msg||!msg->data||msg->maxsize<static_cast<int>(size)||size>65535)continue;
    // Match the postconditions of native Sys_GetPacket without relaxing Steam packet validation.
-   memcpy(msg->data,data,size);msg->cursize=static_cast<int>(size);msg->readcount=1;msg->bit=0;msg->targetLocal=p.remote;msg->overflow=0;msg->splitSize=0;*from=target.adr;from->local=p.local;return 1;
+   memcpy(msg->data,data,size);msg->cursize=static_cast<int>(size);msg->readcount=p.offset?1:0;msg->bit=0;msg->targetLocal=p.remote;msg->overflow=0;msg->splitSize=0;*from=target.adr;from->local=p.local;return 1;
   }catch(const std::exception& e){end(e.what());break;}
  }
  return originalReceive(from,msg);

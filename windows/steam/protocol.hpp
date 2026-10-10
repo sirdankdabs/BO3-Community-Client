@@ -42,7 +42,7 @@ inline std::vector<std::vector<uint8_t>> fragments(const std::vector<uint8_t>& d
 // Native Sys_GetPacket's postconditions, including its already-consumed socket byte.
 struct Packet { uint8_t local,remote;size_t offset; };
 inline Packet packet(const uint8_t* bytes,size_t length) {
- if(length>=4&&memcmp(bytes,"\xff\xff\xff\xff",4)==0)return {0,4,0};
+ if(length>=4&&memcmp(bytes,"\xff\xff\xff\xff",4)==0)return {4,4,0};
  if(length<2||(bytes[0]&15)>4||(bytes[0]>>4)>4)throw std::runtime_error("Invalid socket byte");
  return {static_cast<uint8_t>(bytes[0]&15),static_cast<uint8_t>(bytes[0]>>4),1};
 }
