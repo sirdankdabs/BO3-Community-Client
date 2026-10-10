@@ -241,13 +241,15 @@ template<class T>void hook(uintptr_t va,T callback,T* original){auto p=at<void*>
 using Purchased=bool(*)(int,int,int);Purchased originalPurchased;
 using Locked=bool(*)(int,int,int,int);Locked originalAttachment,originalSlot,originalOption;
 using Challenge=bool(*)(int,int,uint16_t,int);Challenge originalChallenge;
+using Emblem=bool(*)(int,int,void*,bool);Emblem originalEmblem;
+bool emblem_hook(int m,int c,void* lookup,bool other){return !(communityUnlock&&c==0&&!other)&&originalEmblem(m,c,lookup,other);}
 using Outfit=bool(*)(int,int,uint32_t,int,int);Outfit originalOutfit;
-bool purchased_hook(int m,int c,int i){return communityUnlock||originalPurchased(m,c,i);}
-bool attachment_hook(int m,int c,int i,int a){return !communityUnlock&&originalAttachment(m,c,i,a);}
-bool slot_hook(int m,int c,int i,int a){return !communityUnlock&&originalSlot(m,c,i,a);}
-bool option_hook(int m,int c,int i,int a){return !communityUnlock&&originalOption(m,c,i,a);}
-bool challenge_hook(int m,int c,uint16_t i,int a){return communityUnlock||originalChallenge(m,c,i,a);}
-bool outfit_hook(int m,int c,uint32_t i,int t,int a){return !communityUnlock&&originalOutfit(m,c,i,t,a);}
+bool purchased_hook(int m,int c,int i){return (communityUnlock&&c==0)||originalPurchased(m,c,i);}
+bool attachment_hook(int m,int c,int i,int a){return !(communityUnlock&&c==0)&&originalAttachment(m,c,i,a);}
+bool slot_hook(int m,int c,int i,int a){return !(communityUnlock&&c==0)&&originalSlot(m,c,i,a);}
+bool option_hook(int m,int c,int i,int a){return !(communityUnlock&&c==0)&&originalOption(m,c,i,a);}
+bool challenge_hook(int m,int c,uint16_t i,int a){return (communityUnlock&&c==0)||originalChallenge(m,c,i,a);}
+bool outfit_hook(int m,int c,uint32_t i,int t,int a){return !(communityUnlock&&c==0)&&originalOutfit(m,c,i,t,a);}
 
 DWORD WINAPI initialize(void*){
  try{
@@ -258,8 +260,8 @@ DWORD WINAPI initialize(void*){
   auto result=MH_Initialize();if(result!=MH_OK&&result!=MH_ERROR_ALREADY_INITIALIZED)throw std::runtime_error("MinHook unavailable");
   hook(0x1420EC680,frame_hook,&originalFrame);hook(0x14134B990,resend_hook,&originalResend);hook(0x1422B9240,send_hook,&originalSend);hook(0x14211AB40,oob_hook,&originalOob);hook(0x1422B9040,receive_hook,&originalReceive);hook(0x141EBA340,lookup_hook,&originalLookup);hook(0x141EBA390,signed_lookup_hook,&originalSignedLookup);hook(0x141EBA6A0,local_xuid_hook,&originalIsLocal);hook(0x14135D880,disconnect_hook,&originalDisconnect);hook(0x1400A7570,cache_hook,&originalCache);
   communityUnlock=fs::exists(folder()/L"unlocks.enabled");
-  hook(0x1426304B0,purchased_hook,&originalPurchased);hook(0x14262F760,attachment_hook,&originalAttachment);hook(0x14262F560,slot_hook,&originalSlot);hook(0x142631550,option_hook,&originalOption);hook(0x142636480,challenge_hook,&originalChallenge);hook(0x142628EC0,outfit_hook,&originalOutfit);
-  for(auto va:{0x1426304B0ULL,0x14262F760ULL,0x14262F560ULL,0x142631550ULL,0x142636480ULL,0x142628EC0ULL})if(MH_EnableHook(at<void*>(va))!=MH_OK)throw std::runtime_error("Unlock hook activation failed");
+  hook(0x1426304B0,purchased_hook,&originalPurchased);hook(0x14262F760,attachment_hook,&originalAttachment);hook(0x14262F560,slot_hook,&originalSlot);hook(0x142631550,option_hook,&originalOption);hook(0x142636480,challenge_hook,&originalChallenge);hook(0x142628EC0,outfit_hook,&originalOutfit);hook(0x14262A970,emblem_hook,&originalEmblem);
+  for(auto va:{0x1426304B0ULL,0x14262F760ULL,0x14262F560ULL,0x142631550ULL,0x142636480ULL,0x142628EC0ULL,0x14262A970ULL})if(MH_EnableHook(at<void*>(va))!=MH_OK)throw std::runtime_error("Unlock hook activation failed");
   // Enable only this module's hooks, leaving any other MinHook users untouched.
   for(auto va:{0x14134B990ULL,0x1422B9240ULL,0x14211AB40ULL,0x1422B9040ULL,0x141EBA340ULL,0x141EBA390ULL,0x141EBA6A0ULL,0x14135D880ULL,0x1400A7570ULL,0x1420EC680ULL})if(MH_EnableHook(at<void*>(va))!=MH_OK)throw std::runtime_error("Native hook activation failed");
   status("BO3 original de Steam conectado a la app; partidas públicas conservan su transporte");return 0;

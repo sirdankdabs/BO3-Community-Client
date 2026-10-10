@@ -28,6 +28,8 @@ Fuentes externas fijadas: Scroptss/T7Patch-src y Ezz-lol/boiii-free. Conservan s
 
 Selecciona un servidor y pulsa **Workshop del servidor**. Se abren sus páginas en Steam: suscríbete al mapa y al mod indicados y espera a que Steam termine de descargarlos. Pulsa **Unirse**: la DLL actualiza el catálogo nativo, comprueba los IDs y carga el mod o el modo usermaps antes de conectar. La descarga corresponde a Steam; la app no usa SteamCMD ni otro ejecutable del juego. Si falta contenido, detiene la conexión con un mensaje.
 
-Pulsa **Activar Unlock All** y entra al menú de BO3. La app respalda players y la identidad antes de pedir el desbloqueo. Se habilitan armas, accesorios, ranuras de accesorios, camuflajes/retículas, consultas de desafíos, atuendos de especialistas, inventario y ranuras adicionales. La preferencia se guarda y se restaura al cargar la DLL en otra sesión. **Desactivar Unlock All** devuelve las consultas a sus funciones originales.
+Pulsa **Activar Unlock All** y entra al menú de BO3. La app respalda players y la identidad antes de pedir el desbloqueo. Se habilitan armas, accesorios, ranuras de accesorios, camuflajes/retículas, consultas de desafíos y tarjetas/emblemas, atuendos de especialistas, inventario y ranuras adicionales. La preferencia se guarda y se restaura al cargar la DLL en otra sesión. **Desactivar Unlock All** devuelve las consultas a sus funciones originales.
 
 Es un desbloqueo local mientras la DLL está cargada: no cambia el nivel ni convierte desafíos en progreso completado, no concede compras ni DLC de Steam, y los GobbleGums mostrados no son cantidades permanentes del servidor de Steam. Abrir BO3 sin cargar la DLL muestra el inventario original. Cierra el juego antes de cambiar de beta para cargar la DLL nueva. Todo requiere validación en el juego por el probador.
+
+Después de salir de un servidor Workshop, usa el menú Mods del juego para descargar el mod activo antes de volver a partidas públicas oficiales.
