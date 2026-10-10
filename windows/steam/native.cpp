@@ -84,7 +84,8 @@ using Resend=void(*)(int);Resend originalResend=nullptr;
 using Send=bool(*)(int,int,const void*,const Address*);Send originalSend=nullptr;
 using Oob=bool(*)(int,const Address*,const void*,int);Oob originalOob=nullptr;
 using Receive=int(*)(Address*,Message*);Receive originalReceive=nullptr;
-using Lookup=int(*)(uint64_t);Lookup originalLookup=nullptr;
+using Lookup=int(*)(uint64_t);Lookup originalLookup=nullptr,originalSignedLookup=nullptr;
+using IsLocal=bool(*)(uint64_t);IsLocal originalIsLocal=nullptr;
 using Disconnect=void(*)(int,bool);Disconnect originalDisconnect=nullptr;
 using Cache=void(*)(int);Cache originalCache=nullptr;
 bool matches(const Address* adr){return adr&&target.active&&adr->ip==target.adr.ip&&adr->port==target.adr.port;}
@@ -126,6 +127,8 @@ void resend_hook(int client){
  originalResend(client);
 }
 int lookup_hook(uint64_t xuid){return target.active&&xuid==identityXuid?0:originalLookup(xuid);}
+int signed_lookup_hook(uint64_t xuid){return target.active&&xuid==identityXuid?0:originalSignedLookup(xuid);}
+bool local_xuid_hook(uint64_t xuid){return (target.active&&xuid==identityXuid)||originalIsLocal(xuid);}
 void disconnect_hook(int client,bool deactivate){if(client==0&&target.active&&!target.launching)end("Sesión comunitaria terminada; Steam restaurado");originalDisconnect(client,deactivate);}
 void cache_hook(int client){if(!target.active)originalCache(client);}
 bool safe_token(const std::string& s){return !s.empty()&&s.size()<64&&s.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")==s.npos;}
@@ -221,9 +224,9 @@ DWORD WINAPI initialize(void*){
   std::string message;if(!arxan_bypass::install(message))throw std::runtime_error(message);log(message);
   WSADATA wsa{};if(WSAStartup(MAKEWORD(2,2),&wsa)!=0)throw std::runtime_error("Winsock unavailable");
   auto result=MH_Initialize();if(result!=MH_OK&&result!=MH_ERROR_ALREADY_INITIALIZED)throw std::runtime_error("MinHook unavailable");
-  hook(0x1420EC680,frame_hook,&originalFrame);hook(0x14134B990,resend_hook,&originalResend);hook(0x1422B9240,send_hook,&originalSend);hook(0x14211AB40,oob_hook,&originalOob);hook(0x1422B9040,receive_hook,&originalReceive);hook(0x141EBA340,lookup_hook,&originalLookup);hook(0x14135D880,disconnect_hook,&originalDisconnect);hook(0x1400A7570,cache_hook,&originalCache);
+  hook(0x1420EC680,frame_hook,&originalFrame);hook(0x14134B990,resend_hook,&originalResend);hook(0x1422B9240,send_hook,&originalSend);hook(0x14211AB40,oob_hook,&originalOob);hook(0x1422B9040,receive_hook,&originalReceive);hook(0x141EBA340,lookup_hook,&originalLookup);hook(0x141EBA390,signed_lookup_hook,&originalSignedLookup);hook(0x141EBA6A0,local_xuid_hook,&originalIsLocal);hook(0x14135D880,disconnect_hook,&originalDisconnect);hook(0x1400A7570,cache_hook,&originalCache);
   // Enable only this module's hooks, leaving any other MinHook users untouched.
-  for(auto va:{0x14134B990ULL,0x1422B9240ULL,0x14211AB40ULL,0x1422B9040ULL,0x141EBA340ULL,0x14135D880ULL,0x1400A7570ULL,0x1420EC680ULL})if(MH_EnableHook(at<void*>(va))!=MH_OK)throw std::runtime_error("Native hook activation failed");
+  for(auto va:{0x14134B990ULL,0x1422B9240ULL,0x14211AB40ULL,0x1422B9040ULL,0x141EBA340ULL,0x141EBA390ULL,0x141EBA6A0ULL,0x14135D880ULL,0x1400A7570ULL,0x1420EC680ULL})if(MH_EnableHook(at<void*>(va))!=MH_OK)throw std::runtime_error("Native hook activation failed");
   status("BO3 original de Steam conectado a la app; partidas públicas conservan su transporte");return 0;
  }catch(const std::exception& e){status(e.what());log(e.what());return 1;}
 }
