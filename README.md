@@ -5,7 +5,7 @@ Código fuente completo de BO3MacFix y BO3 Mac Client, con modificaciones locale
 ## Estado real
 
 - **macOS:** código del parche y aplicación SwiftUI, compilados localmente. Beta47 añade una prueba de experiencia de armas permanente. La persistencia de esos accesorios todavía requiere verificación dentro del juego; los camuflajes por desafíos y GobbleGums siguen dependiendo del desbloqueo del parche.
-- **Windows / Steam:** beta2 experimental carga una DLL en el BlackOps3.exe original iniciado por Steam. No arranca boiii.exe. La conexión comunitaria y el regreso a partidas públicas requieren prueba real; Workshop y Unlock All no están habilitados en este motor. La beta1 anterior usaba Ezz y no cumple esa integración.
+- **Windows / Steam:** beta3 experimental carga una DLL en el BlackOps3.exe original iniciado por Steam. No arranca boiii.exe. La conexión comunitaria y el regreso a partidas públicas requieren prueba real; Incluye carga nativa de Workshop descargado por Steam y Unlock All local mientras está cargada la DLL; no modifica las compras ni el progreso permanente de Steam. La beta1 anterior usaba Ezz y no cumple esa integración.
 
 ## Compilar en Mac
 
