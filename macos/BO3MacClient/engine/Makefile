@@ -36,6 +36,9 @@ clean:
 .PHONY: all clean test
 test:
 	@mkdir -p build
+	$(CC) -std=c11 -Wall -Wextra -Werror -g -fsanitize=address,undefined -I source tests/boiii_world_packet_test.c -o build/boiii_world_packet_test
+	./build/boiii_world_packet_test
+	@mkdir -p build
 	$(CC) -std=c11 -Wall -Wextra -Werror -g -fsanitize=address,undefined -I source tests/t7_full_unlock_test.c -o build/t7_full_unlock_test
 	./build/t7_full_unlock_test
 	$(CC) -std=c11 -Wall -Wextra -Werror -g -fsanitize=address,undefined -I source tests/t7_unlock_test.c -o build/t7_unlock_test

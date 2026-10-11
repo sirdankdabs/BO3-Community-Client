@@ -1,3 +1,4 @@
+#include "boiii_world_packet.h"
 // Joining BOIII/Ezz community dedicated servers from the Mac build (opt-in,
 // BO3MACFIX_BOIII=1). See docs/BOIII-MAC-PORT.md for the protocol analysis.
 //
@@ -666,48 +667,25 @@ static void server_id_outgoing(uint8_t *packet, size_t length) {
     }
 }
 
-// Network thread (recvfrom): classify server netchan packets. The channel
-// byte (offset 19) varies between servers/sessions, so only the reliable flag
-// and the size are used: gamestates are big reliable fragments; once in the
-// world the server streams unreliable snapshots, many per second.
+// Network thread: a non-empty unreliable world message confirms entry.
+// Quiet servers may send only one snapshot per second. Empty acknowledgement
+// packets are not evidence that a candidate serverId was accepted.
 static void server_id_incoming(const uint8_t *bytes, size_t length) {
-    if (length < 26 || bytes[1] != 0xe0) return;
-    // Big reliable messages: gamestates (tracked in hook_CL_ParseGamestate)
-    // or large server commands; neither is part of a snapshot burst.
-    if ((bytes[18] & 0x40) && length >= 800) return;
-    if (bytes[18] != 0x00 || !sid.searching || !sid.sent_value || sid.hit_value) return;
-    // Burst = 8 unreliable packets within 400 ms; it starts at the oldest.
-    static uint64_t recent[8];
-    static unsigned recent_count;
+    if (!boiii_world_packet(bytes, length) || !sid.searching || !sid.sent_value || sid.hit_value) return;
     uint64_t now = now_ms();
-    recent[recent_count++ % 8] = now;
-    uint64_t oldest = recent[recent_count % 8];
-    int window_count = recent_count >= 8 && now - oldest <= 400 ? 8 : 0;
-    // The burst's start: skip the two oldest of the eight, which may be stray
-    // packets that arrived just before it.
-    uint64_t window_start = recent[(recent_count + 2) % 8];
-    if (window_count >= 8) {
-        // The server reacts to the first packet carrying the right id, so the
-        // burst starts a round trip plus a server frame after that candidate
-        // started. With candidates held PROBE_HOLD_MS apart, only one start
-        // fits. The previous candidate is kept as the alternative.
-        int hit = 0, alt = 0;
-        unsigned count = sid.sent_count;
-        for (unsigned i = 0; i < 16 && i < count; ++i) {
-            unsigned slot = (count - 1 - i) % 16;
-            if (!hit) {
-                if (sid.sent[slot].time + PROBE_MIN_RTT <= window_start) {
-                    hit = sid.sent[slot].value;
-                    sid.hit_delay = (int)(window_start - sid.sent[slot].time);
-                    if (i + 1 < 16 && i + 1 < count) alt = sid.sent[(count - 2 - i) % 16].value;
-                    break;
-                }
-            }
+    int hit = 0, alt = 0;
+    unsigned count = sid.sent_count;
+    for (unsigned i = 0; i < 16 && i < count; ++i) {
+        unsigned slot = (count - 1 - i) % 16;
+        if (sid.sent[slot].time + PROBE_MIN_RTT <= now) {
+            hit = sid.sent[slot].value;
+            sid.hit_delay = (int)(now - sid.sent[slot].time);
+            if (i + 1 < 16 && i + 1 < count) alt = sid.sent[(count - 2 - i) % 16].value;
+            break;
         }
-        sid.alt_value = alt;
-        sid.hit_value = hit ? hit : sid.sent_value;
-        recent_count = 0;
     }
+    sid.alt_value = alt;
+    sid.hit_value = hit ? hit : sid.sent_value;
 }
 
 // Main thread, every frame while routing.
